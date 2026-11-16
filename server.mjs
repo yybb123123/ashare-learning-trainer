@@ -14,6 +14,7 @@ if(!username||!password||password.length<16){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
 function equal(a,b){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y)}
+function relativePath(file){return file.slice(root.length+1).split(sep).join('/')}
 function authorized(header){
  if(!header?.startsWith('Basic '))return false;
  try{
@@ -39,6 +40,7 @@ const server=http.createServer(async(req,res)=>{
   const file=resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
   if(!file.startsWith(root+sep))throw Error('Outside root');
   const blocked=['.git','.github','tools','tests','node_modules'];
+  if(['server.mjs','package.json','package-lock.json','schema.sql'].includes(relativePath(file)))throw Error('Not public');
   const relative=file.slice(root.length+1).split(sep);
   if(relative.some(p=>p.startsWith('.')||blocked.includes(p))||['.md','.sql','.py','.yml','.yaml','.env'].includes(extname(file)))throw Error('Not public');
   const info=await stat(file);if(!info.isFile())throw Error('Not a file');
