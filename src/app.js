@@ -28,6 +28,35 @@ const raw=[
 ['A股规则与风险','避免未来数据','历史回放只能使用当时已知行情。','训练时可提前看未来价格吗？','可以|不可以',1]
 ];
 const lessons=raw.map((r,i)=>({id:'l'+i,stage:r[0],title:r[1],body:r[2],q:r[3],options:r[4].split('|'),a:r[5]}));
+
+// Detailed beginner explanations are authored teaching material, not live AI advice.
+const explanations=[
+'红色阳线表示收盘价高于开盘价。注意：当天收涨不等于比昨天收盘价上涨。',
+'实体两端由开盘价与收盘价决定；影线则延伸至最高价与最低价。',
+'最高价减最低价是当天的价格振幅（金额差），12－8＝4元。',
+'长上影线说明盘中曾到达更高价格后回落，但单根K线不能预测次日。',
+'十字星代表开收盘接近，可能是犹豫；要结合位置、趋势与成交量。',
+'观察连续多个高点、低点的变化，比只看一天红绿更可靠。',
+'高点和低点逐步抬高通常属于上升趋势；仍可能出现回调。',
+'支撑是历史价格反应区域，跌破意味着原判断可能需要修正。',
+'MA20取最近20个交易日的收盘价相加，再除以20；它会随新数据变化。',
+'均线反映过去走势，站上均线不能保证未来继续上涨。',
+'同期股票涨幅低于指数，意味着相对表现偏弱，不等于股价一定下跌。',
+'缩量是成交量相对比较小，比较基准可以是过去20个交易日平均量。',
+'突破后回到原整理区间，可能属于假突破，不能只凭突破瞬间判断。',
+'放量只说明交易活跃程度提高，买卖双方都可能非常积极。',
+'VCP通常关注波动逐步收窄及量能趋于收缩，不是保证上涨的图形。',
+'Pivot是观察突破是否发生的参考价格，不是自动买入指令。',
+'失败形态也必须学习，避免只看成功案例产生幸存者偏差。',
+'大盘环境可能影响个股走势；先看市场，再看个股的证据。',
+'多个相互独立的证据共同支持判断，比单一信号更稳健，但仍有风险。',
+'回踩可能守住支撑，也可能继续下跌；必须事先考虑判断失效的条件。',
+'普通A股买入后通常要到下一交易日才能卖出，节假日不算交易日。',
+'跌停或停牌时可能无法及时成交，止损单不保证按目标价执行。',
+'10万元的1%是1000元；这只是计划风险预算，实际亏损可能超过它。',
+'回放时必须隐藏未来K线，否则会产生前视偏差，训练结果不可信。'
+];
+
 const fresh=()=>({completed:{},mistakes:[],notes:'',decisions:[],lastLesson:'l0',updatedAt:null});
 let state=fresh(),current=0,selected=-1,market=null,barIndex=0,cloud=null;
 try{const s=JSON.parse(localStorage.getItem('ashare_learning_v4'));if(s&&typeof s==='object')state={...fresh(),...s}}catch{}
@@ -40,7 +69,7 @@ $('#nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)show(b.datase
 $('#resume').onclick=()=>{current=Math.max(0,lessons.findIndex(l=>l.id===state.lastLesson));show('lesson')};
 function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / 24课</span><h2>'+esc(l.title)+'</h2>'+(current===0?candleDiagram():'')+'<div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div>';
 $('#lessonBody').querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.choice);$('#check').disabled=false;$('#lessonBody').querySelectorAll('[data-choice]').forEach(x=>x.classList.toggle('selected',x===b))});
-$('#check').onclick=()=>{const ok=selected===l.a;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=l.id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});save()};
+$('#check').onclick=()=>{const ok=selected===l.a;$('#lessonExplanation').hidden=false;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=lessons[Math.min(current+1,23)].id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});save()};
 $('#previousLesson').disabled=current===0;$('#nextLesson').disabled=current===23;$('#previousLesson').onclick=()=>move(-1);$('#nextLesson').onclick=()=>move(1)}
 function move(d){current=Math.max(0,Math.min(23,current+d));state.lastLesson=lessons[current].id;save();renderLesson()}
 function renderNotes(){$('#noteText').value=state.notes;$('#mistakes').innerHTML=state.mistakes.length?state.mistakes.slice(-20).reverse().map(x=>'<div class="panel"><b>'+esc(x.question)+'</b><p>我的答案：'+esc(x.answer)+'<br>正确答案：'+esc(x.correct)+'</p></div>').join(''):'暂无错题';$('#decisions').innerHTML=state.decisions.length?state.decisions.slice(-20).reverse().map(x=>'<p>'+esc(x.symbol)+' '+esc(x.date)+' '+esc(x.decision)+'</p>').join(''):'暂无历史练习记录'}
