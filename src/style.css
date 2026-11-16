@@ -35,3 +35,5 @@ h1{font-size:1.5rem}
 @media(max-width:760px){:root.large-text{font-size:21px}.display-tools{margin-top:8px}}
 #lessonExplanation{border-left:5px solid #1266b0;background:#f0f8ff}
 #lessonExplanation[hidden]{display:none}
+
+.schedule-item{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #d8e5f1}.schedule-item:last-child{border-bottom:0}.schedule-item p{margin:3px 0 0}.schedule-time{flex:0 0 66px;font-size:.84rem;color:#164f80;font-weight:700}.schedule-item strong{font-size:1rem}#lessonExplanation h3{margin:18px 0 4px;font-size:1.04rem}#lessonExplanation p{margin:5px 0 12px}
