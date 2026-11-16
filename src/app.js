@@ -1,0 +1,62 @@
+import {config} from './config.js';
+const $=s=>document.querySelector(s),pages=['home','lesson','market','notes','account','ai'];
+const raw=[
+['K线基础','红绿K线','中国A股常用红涨绿跌：收盘高于开盘为红色。','开盘9元，收盘11元是什么颜色？','红色|绿色|十字星',0],
+['K线基础','开盘价与收盘价','开盘与收盘价决定K线实体两端。','K线实体由哪两个价格构成？','最高与最低|开盘与收盘|昨天与明天',1],
+['K线基础','最高价与最低价','上下影线反映交易日最高最低成交价格。','最高12元最低8元，相差多少？','2元|4元|12元',1],
+['K线基础','实体和影线','长上影线表示盘中曾达到较高价格，但不保证明天下跌。','长上影线说明什么？','盘中曾上涨但未在最高价收盘|明天必跌|必然涨停',0],
+['K线基础','十字星','开盘收盘接近，实体较小，须结合趋势与量能。','十字星出现后应当？','立即买入|立即卖出|结合趋势继续观察',2],
+['K线基础','连续K线','趋势要看一段时间的高点低点，而非单根颜色。','判断趋势主要看？','单根颜色|连续高低点|股票名称',1],
+['趋势与均线','上涨下跌与横盘','高点和低点逐步抬高是常见上升趋势特征。','高点低点持续抬高通常是？','上升|下跌|无法判断',0],
+['趋势与均线','支撑与阻力','支撑与阻力是价格反应区域，不是不可突破的线。','跌破支撑说明？','永不再跌|支撑可能失效|一定反弹',1],
+['趋势与均线','MA20均线','MA20是最近20个交易日收盘价的简单平均。','MA20是？','预测未来|20日收盘价平均|股价20元',1],
+['趋势与均线','均线与趋势','均线是滞后指标，不能保证盈利。','股价站上MA20代表？','稳赚|可能偏强仍需验证|必须满仓',1],
+['趋势与均线','相对强度','同一时期个股表现要与基准指数比较。','股票涨5%，指数涨10%，相对表现？','偏弱|偏强|一样',0],
+['成交量','成交量是什么','成交量是某时段成交股票数量。','低于20日平均量通常叫？','缩量|涨停|除权',0],
+['成交量','突破与假突破','突破前高后跌回区间可能是假突破。','突破后迅速跌回区间是？','假突破|必涨|停牌',0],
+['成交量','量价关系','成交量反映活跃程度，不能单独决定方向。','放量一定上涨吗？','一定|不一定|一定下跌',1],
+['VCP形态','VCP基础','VCP关注调整幅度逐步收窄、量能收缩。','VCP核心特征？','波动收缩|天天涨停|低价股',0],
+['VCP形态','Pivot突破点','Pivot是整理形态附近的关键参考位置。','Pivot更像什么？','突破参考位|注册地址|保证盈利点',0],
+['VCP形态','VCP失败案例','形态可能突破失败；不能只研究成功股票。','VCP一定上涨吗？','一定|不一定',1],
+['J Law理念','先看市场环境','借鉴公开趋势交易理念，先看大盘再看个股。','先研究什么？','市场趋势|代码吉利|聊天热度',0],
+['J Law理念','多重优势','趋势、相对强度、量能、位置和风险需共同核对。','只有一个信号时？','忽略风险|继续核对证据|借钱买入',1],
+['J Law理念','突破后回踩','回踩不保证成功，重点观察支撑与风险。','回踩时最重要？','观察支撑与风险|保证反弹|永不止损',0],
+['A股规则与风险','T+1规则','普通A股当天买入通常不能当天卖出。','当天买的普通A股何时最早卖？','当天|下个交易日|一年后',1],
+['A股规则与风险','涨跌停与流动性','涨跌停、停牌可能导致无法按止损价成交。','跌停时止损一定成交？','一定|不一定',1],
+['A股规则与风险','仓位与风险','单笔风险预算不等于保证最大亏损，考虑费用与滑点。','10万元账户风险1%是多少？','100元|1000元|10000元',1],
+['A股规则与风险','避免未来数据','历史回放只能使用当时已知行情。','训练时可提前看未来价格吗？','可以|不可以',1]
+];
+const lessons=raw.map((r,i)=>({id:'l'+i,stage:r[0],title:r[1],body:r[2],q:r[3],options:r[4].split('|'),a:r[5]}));
+const fresh=()=>({completed:{},mistakes:[],notes:'',decisions:[],lastLesson:'l0',updatedAt:null});
+let state=fresh(),current=0,selected=-1,market=null,barIndex=0,cloud=null;
+try{const s=JSON.parse(localStorage.getItem('ashare_learning_v4'));if(s&&typeof s==='object')state={...fresh(),...s}}catch{}
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function save(){state.updatedAt=new Date().toISOString();try{localStorage.setItem('ashare_learning_v4',JSON.stringify(state));$('#saveState').textContent='已保存本机；云端状态请查看账号页'}catch{$('#saveState').textContent='本机保存失败，请导出备份'}progress()}
+function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / 24 课';$('#progressBar').style.width=(n/24*100)+'%'}
+$('#nav').innerHTML=[['home','🏠 首页'],['lesson','📖 零基础课程'],['market','📊 真实历史行情'],['notes','📝 笔记与错题'],['account','☁️ 云端账号'],['ai','🤖 AI老师']].map(([id,t])=>'<button class="nav" data-page="'+id+'">'+t+'</button>').join('');
+function show(id){for(const p of pages)$('#'+p).hidden=p!==id;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='lesson')renderLesson();if(id==='notes')renderNotes();if(id==='account')renderAccount()}
+$('#nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)show(b.dataset.page)};
+$('#resume').onclick=()=>{current=Math.max(0,lessons.findIndex(l=>l.id===state.lastLesson));show('lesson')};
+function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / 24课</span><h2>'+esc(l.title)+'</h2><div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div>';
+$('#lessonBody').querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.choice);$('#check').disabled=false;$('#lessonBody').querySelectorAll('[data-choice]').forEach(x=>x.classList.toggle('selected',x===b))});
+$('#check').onclick=()=>{const ok=selected===l.a;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=l.id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});save()};
+$('#previousLesson').disabled=current===0;$('#nextLesson').disabled=current===23;$('#previousLesson').onclick=()=>move(-1);$('#nextLesson').onclick=()=>move(1)}
+function move(d){current=Math.max(0,Math.min(23,current+d));state.lastLesson=lessons[current].id;save();renderLesson()}
+function renderNotes(){$('#noteText').value=state.notes;$('#mistakes').innerHTML=state.mistakes.length?state.mistakes.slice(-20).reverse().map(x=>'<div class="panel"><b>'+esc(x.question)+'</b><p>我的答案：'+esc(x.answer)+'<br>正确答案：'+esc(x.correct)+'</p></div>').join(''):'暂无错题';$('#decisions').innerHTML=state.decisions.length?state.decisions.slice(-20).reverse().map(x=>'<p>'+esc(x.symbol)+' '+esc(x.date)+' '+esc(x.decision)+'</p>').join(''):'暂无历史练习记录'}
+$('#saveNote').onclick=()=>{state.notes=$('#noteText').value.slice(0,20000);save();$('#noteStatus').textContent='已保存到本机'};
+$('#exportProgress').onclick=()=>{const b=new Blob([JSON.stringify({format:'ashare-learning-backup',state},null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='A股学习进度备份.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
+$('#importProgress').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>2e6)throw Error('文件过大');const d=JSON.parse(await f.text());if(d.format!=='ashare-learning-backup'||!d.state)throw Error('格式错误');if(!confirm('覆盖当前本机进度？'))return;state={...fresh(),...d.state};save();$('#backupStatus').textContent='导入成功'}catch(err){$('#backupStatus').textContent=err.message}};
+function validate(d){if(!d||d.verified!==true||!d.source?.url||!d.source?.retrievedAt||!d.symbol||!['none','qfq','hfq'].includes(d.adjustment)||!Array.isArray(d.bars)||d.bars.length<20)throw Error('缺少真实行情来源、复权信息或20条日线');let prev='';for(const b of d.bars){if(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||b.date<=prev||b.date<'2015-01-01'||b.date>'2026-10-31')throw Error('日期错误');prev=b.date;for(const k of ['open','high','low','close','volume'])if(!Number.isFinite(b[k])||b[k]<0)throw Error('行情数值错误');if(b.low<=0||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close))throw Error('OHLC异常')}return d}
+function load(d){market=validate(d);barIndex=19;$('#marketStatus').textContent='已加载 '+d.symbol+'，来源：'+d.source.url+'。来源核验标记由导入者声明，本站不能独立证明。';draw()}
+function draw(){if(!market)return;const bars=market.bars.slice(Math.max(0,barIndex-59),barIndex+1),hi=Math.max(...bars.map(b=>b.high)),lo=Math.min(...bars.map(b=>b.low)),span=Math.max(hi-lo,.01),w=900,h=360,dx=820/bars.length,py=v=>25+(hi-v)/span*240;let out='<svg viewBox="0 0 900 360" aria-label="历史K线图"><rect width="900" height="360" fill="#f5f9fc"/>';bars.forEach((b,i)=>{const x=60+(i+.5)*dx,c=b.close>=b.open?'#d94c4c':'#25865b',top=Math.min(py(b.open),py(b.close));out+='<line x1="'+x+'" y1="'+py(b.high)+'" x2="'+x+'" y2="'+py(b.low)+'" stroke="'+c+'"/><rect x="'+(x-dx*.3)+'" y="'+top+'" width="'+Math.max(2,dx*.6)+'" height="'+Math.max(1,Math.abs(py(b.open)-py(b.close)))+'" fill="'+c+'"/>'});$('#chart').innerHTML=out+'</svg>';const b=market.bars[barIndex];$('#barInfo').textContent=b.date+' 开'+b.open+' 高'+b.high+' 低'+b.low+' 收'+b.close+' 量'+b.volume;$('#chartCaption').textContent='来源：'+market.source.url+'；复权：'+market.adjustment+'；未来数据隐藏';$('#prevBar').disabled=barIndex<=19;$('#nextBar').disabled=barIndex>=market.bars.length-1;$('#recordDecision').disabled=false}
+$('#prevBar').onclick=()=>{barIndex--;draw()};$('#nextBar').onclick=()=>{barIndex++;draw()};
+$('#recordDecision').onclick=()=>{if(!market||!$('#decision').value)return;state.decisions.push({symbol:market.symbol,date:market.bars[barIndex].date,decision:$('#decision').value});save();$('#decisionStatus').textContent='判断已记录'};
+$('#marketFile').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>12e6)throw Error('文件超过12MB');load(JSON.parse(await f.text()));$('#importStatus').textContent='文件结构检查通过，请自行核对真实来源'}catch(err){$('#importStatus').textContent='导入失败：'+err.message}};
+fetch(config.marketManifest).then(r=>r.json()).then(m=>{if(!m.verified||!m.datasets?.length)throw Error();$('#dataset').innerHTML='<option value="">选择数据集</option>'+m.datasets.map((d,i)=>'<option value="'+i+'">'+esc(d.symbol)+' '+esc(d.name)+'</option>').join('');$('#loadDataset').disabled=false;$('#loadDataset').onclick=async()=>{try{const d=m.datasets[Number($('#dataset').value)];if(d)load(await (await fetch(d.path)).json())}catch(e){$('#marketStatus').textContent=e.message}}}).catch(()=>{$('#marketStatus').textContent='尚未导入2015—2026年真实A股行情，历史回放暂不可用。'});
+function renderAccount(){$('#cloudStatus').textContent=cloud?.user?'已登录 '+cloud.user.email:'Supabase 尚未配置或未登录；本地记录可以导出备份';$('#logout').hidden=!cloud?.user}
+async function initCloud(){if(!config.supabaseUrl||!config.supabasePublishableKey){renderAccount();return}try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');cloud={db:createClient(config.supabaseUrl,config.supabasePublishableKey),user:null};const {data:{user}}=await cloud.db.auth.getUser();cloud.user=user;renderAccount()}catch(e){$('#cloudStatus').textContent='云端连接失败：'+e.message}}
+$('#login').onclick=async()=>{if(!cloud)return $('#authMsg').textContent='请先配置Supabase';const {data,error}=await cloud.db.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});$('#authMsg').textContent=error?error.message:'登录成功';if(!error){cloud.user=data.user;renderAccount()}};
+$('#signup').onclick=async()=>{if(!cloud)return $('#authMsg').textContent='请先配置Supabase';const {error}=await cloud.db.auth.signUp({email:$('#email').value,password:$('#password').value});$('#authMsg').textContent=error?error.message:'注册已提交，请按邮件提示确认'};
+$('#logout').onclick=async()=>{if(cloud){await cloud.db.auth.signOut();cloud.user=null;renderAccount()}};
+$('#syncNow').onclick=async()=>{if(!cloud?.user)return $('#backupStatus').textContent='请先登录';const {error}=await cloud.db.from('learning_state').upsert({user_id:cloud.user.id,payload:state,updated_at:new Date().toISOString()});$('#backupStatus').textContent=error?'同步失败：'+error.message:'已同步到云端'};
+progress();show('home');initCloud();
