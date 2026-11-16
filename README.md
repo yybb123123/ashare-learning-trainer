@@ -30,3 +30,10 @@ Settings → Pages → Deploy from a branch → main → /(root) → Save。
 
 ## 版权与定位
 J Law 相关内容仅借鉴其公开讨论的趋势/VCP/多重证据理念，不代表其本人授权、背书或专有策略复刻。仅供教育使用。
+
+## 已准备好的数据工程（2026-11）
+- `tools/import_ashare_csv.py`：将有明确来源的 CSV 日线转换为 JSON，拒绝日期乱序、重复日期、非法 OHLC 和少于 20 条的数据。
+- `tests/test_import.py`：导入器的离线回归测试（测试夹具为虚构数值，仅用于测试，不进入学习行情）。
+- `.github/workflows/check.yml`：提交时运行 Python 单元测试与 JS 语法检查。
+- 导入器的 `verificationLevel: structural-only` 表示**仅结构校验**，不能代表数据供应商真实性、复权正确性或全市场覆盖已核验。
+- 真实数据仍需获得合法来源、核对许可、交易日历、股票上市退市与停牌记录，再逐批发布。
