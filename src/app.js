@@ -1,6 +1,7 @@
 import {config} from './config.js';
 import {candleDiagram,stageOverview} from './learning-visuals.js';
 import {deepLessons,dailySchedule} from './deep-lessons.js';
+import {buildSummary,summaryText} from './session-summary.js';
 const $=s=>document.querySelector(s),pages=['home','lesson','market','notes','account','ai'];
 const raw=[
 ['K线基础','红绿K线','中国A股常用红涨绿跌：收盘高于开盘为红色。','开盘9元，收盘11元是什么颜色？','红色|绿色|十字星',0],
@@ -58,13 +59,29 @@ const explanations=[
 '回放时必须隐藏未来K线，否则会产生前视偏差，训练结果不可信。'
 ];
 
-const fresh=()=>({completed:{},mistakes:[],notes:'',decisions:[],lastLesson:'l0',updatedAt:null});
+const fresh=()=>({completed:{},mistakes:[],notes:'',decisions:[],summaries:[],activeSession:null,lastLesson:'l0',updatedAt:null});
 let state=fresh(),current=0,selected=-1,market=null,barIndex=0,cloud=null;
 try{const s=JSON.parse(localStorage.getItem('ashare_learning_v4'));if(s&&typeof s==='object')state={...fresh(),...s}}catch{}
 let largeText=localStorage.getItem('ashare_large_text')==='1';
 function setLargeText(on){largeText=on;document.documentElement.classList.toggle('large-text',on);$('#fontToggle').textContent=on?'恢复标准字体 A−':'字体放大 A+';$('#fontToggle').setAttribute('aria-pressed',String(on));try{localStorage.setItem('ashare_large_text',on?'1':'0')}catch{}}
 $('#fontToggle').onclick=()=>setLargeText(!largeText);
 setLargeText(largeText);
+function ensureSession(){if(!state.activeSession||!Array.isArray(state.activeSession.events))state.activeSession={startedAt:new Date().toISOString(),events:[]}}
+function logSession(event){ensureSession();state.activeSession.events.push({...event,at:new Date().toISOString()});save()}
+function renderSummaries(){
+ const el=$('#sessionSummaryList');if(!el)return;
+ const list=Array.isArray(state.summaries)?state.summaries:[];
+ el.innerHTML=list.length?list.slice().reverse().map((s,i)=>'<details class="summary-card"><summary>'+esc(new Date(s.endedAt).toLocaleString('zh-CN'))+' · '+s.attempts+'次答题 · '+(s.accuracy===null?'无正确率':s.accuracy+'%')+'</summary><div class="summary-body"><pre>'+esc(summaryText(s))+'</pre></div></details>').join(''):'尚无学习总结。完成答题后，点击首页「结束本次学习并生成总结」。';
+}
+$('#finishSession').onclick=()=>{
+ ensureSession();
+ const session=state.activeSession;
+ if(!session.events.length&&!confirm('本次还没有答题记录，仍然生成空白学习总结吗？'))return;
+ const summary=buildSummary(session.events,lessons,session.startedAt,new Date().toISOString());
+ state.summaries=Array.isArray(state.summaries)?state.summaries:[];
+ state.summaries.push(summary);
+ state.activeSession=null;save();show('notes');
+};
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){state.updatedAt=new Date().toISOString();try{localStorage.setItem('ashare_learning_v4',JSON.stringify(state));$('#saveState').textContent='已保存本机；云端状态请查看账号页'}catch{$('#saveState').textContent='本机保存失败，请导出备份'}progress()}
 function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / 24 课';$('#progressBar').style.width=(n/24*100)+'%';const st=$('#stageOverview');if(st)st.innerHTML=stageOverview(lessons,state.completed)}
@@ -79,10 +96,10 @@ $('#nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)show(b.datase
 $('#resume').onclick=()=>{current=Math.max(0,lessons.findIndex(l=>l.id===state.lastLesson));show('lesson')};
 function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / 24课</span><h2>'+esc(l.title)+'</h2>'+(current===0?candleDiagram():'')+'<div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div><div id="lessonExplanation" class="panel" hidden><strong>老师讲解</strong><p>'+esc(explanations[current])+'</p><h3>举个例子</h3><p>'+esc(deepLessons[current].example)+'</p><h3>容易误解的地方</h3><p>'+esc(deepLessons[current].pitfall)+'</p><h3>动手练习</h3><p>'+esc(deepLessons[current].practice)+'</p><p class="small">以上数字均为教学示意，不代表真实A股历史价格。</p></div>';
 $('#lessonBody').querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.choice);$('#check').disabled=false;$('#lessonBody').querySelectorAll('[data-choice]').forEach(x=>x.classList.toggle('selected',x===b))});
-$('#check').onclick=()=>{const ok=selected===l.a;$('#lessonExplanation').hidden=false;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=lessons[Math.min(current+1,23)].id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});save()};
+$('#check').onclick=()=>{const ok=selected===l.a;$('#lessonExplanation').hidden=false;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=lessons[Math.min(current+1,23)].id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});logSession({type:'answer',lessonId:l.id,correct:ok})};
 $('#previousLesson').disabled=current===0;$('#nextLesson').disabled=current===23;$('#previousLesson').onclick=()=>move(-1);$('#nextLesson').onclick=()=>move(1)}
 function move(d){current=Math.max(0,Math.min(23,current+d));state.lastLesson=lessons[current].id;save();renderLesson()}
-function renderNotes(){$('#noteText').value=state.notes;$('#mistakes').innerHTML=state.mistakes.length?state.mistakes.slice(-20).reverse().map(x=>'<div class="panel"><b>'+esc(x.question)+'</b><p>我的答案：'+esc(x.answer)+'<br>正确答案：'+esc(x.correct)+'</p></div>').join(''):'暂无错题';$('#decisions').innerHTML=state.decisions.length?state.decisions.slice(-20).reverse().map(x=>'<p>'+esc(x.symbol)+' '+esc(x.date)+' '+esc(x.decision)+'</p>').join(''):'暂无历史练习记录'}
+function renderNotes(){renderSummaries();$('#noteText').value=state.notes;$('#mistakes').innerHTML=state.mistakes.length?state.mistakes.slice(-20).reverse().map(x=>'<div class="panel"><b>'+esc(x.question)+'</b><p>我的答案：'+esc(x.answer)+'<br>正确答案：'+esc(x.correct)+'</p></div>').join(''):'暂无错题';$('#decisions').innerHTML=state.decisions.length?state.decisions.slice(-20).reverse().map(x=>'<p>'+esc(x.symbol)+' '+esc(x.date)+' '+esc(x.decision)+'</p>').join(''):'暂无历史练习记录'}
 $('#saveNote').onclick=()=>{state.notes=$('#noteText').value.slice(0,20000);save();$('#noteStatus').textContent='已保存到本机'};
 $('#exportProgress').onclick=()=>{const b=new Blob([JSON.stringify({format:'ashare-learning-backup',state},null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='A股学习进度备份.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
 $('#importProgress').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>2e6)throw Error('文件过大');const d=JSON.parse(await f.text());if(d.format!=='ashare-learning-backup'||!d.state)throw Error('格式错误');if(!confirm('覆盖当前本机进度？'))return;state={...fresh(),...d.state};save();$('#backupStatus').textContent='导入成功'}catch(err){$('#backupStatus').textContent=err.message}};
