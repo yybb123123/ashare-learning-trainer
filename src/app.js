@@ -59,4 +59,4 @@ $('#login').onclick=async()=>{if(!cloud)return $('#authMsg').textContent='请先
 $('#signup').onclick=async()=>{if(!cloud)return $('#authMsg').textContent='请先配置Supabase';const {error}=await cloud.db.auth.signUp({email:$('#email').value,password:$('#password').value});$('#authMsg').textContent=error?error.message:'注册已提交，请按邮件提示确认'};
 $('#logout').onclick=async()=>{if(cloud){await cloud.db.auth.signOut();cloud.user=null;renderAccount()}};
 $('#syncNow').onclick=async()=>{if(!cloud?.user)return $('#backupStatus').textContent='请先登录';const {error}=await cloud.db.from('learning_state').upsert({user_id:cloud.user.id,payload:state,updated_at:new Date().toISOString()});$('#backupStatus').textContent=error?'同步失败：'+error.message:'已同步到云端'};
-progress();show('home');initCloud();
+progress();$('#saveState').textContent=state.updatedAt?'已读取本机学习进度（上次保存：'+new Date(state.updatedAt).toLocaleString('zh-CN')+'）；尚未云端同步':'尚无学习记录；完成答题后将自动保存在本机（尚未云端同步）';show('home');initCloud();
