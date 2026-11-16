@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "coverageTarget": {
+    "start": "2015-01-01",
+    "end": "2026-10-31",
+    "markets": [
+      "SSE",
+      "SZSE",
+      "BSE"
+    ]
+  },
+  "datasets": [],
+  "verified": false,
+  "message": "尚未导入真实历史A股数据，不得使用模拟数据冒充"
+}
