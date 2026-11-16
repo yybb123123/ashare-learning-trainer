@@ -60,6 +60,10 @@ const explanations=[
 const fresh=()=>({completed:{},mistakes:[],notes:'',decisions:[],lastLesson:'l0',updatedAt:null});
 let state=fresh(),current=0,selected=-1,market=null,barIndex=0,cloud=null;
 try{const s=JSON.parse(localStorage.getItem('ashare_learning_v4'));if(s&&typeof s==='object')state={...fresh(),...s}}catch{}
+let largeText=localStorage.getItem('ashare_large_text')==='1';
+function setLargeText(on){largeText=on;document.documentElement.classList.toggle('large-text',on);$('#fontToggle').textContent=on?'恢复标准字体 A−':'字体放大 A+';$('#fontToggle').setAttribute('aria-pressed',String(on));try{localStorage.setItem('ashare_large_text',on?'1':'0')}catch{}}
+$('#fontToggle').onclick=()=>setLargeText(!largeText);
+setLargeText(largeText);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){state.updatedAt=new Date().toISOString();try{localStorage.setItem('ashare_learning_v4',JSON.stringify(state));$('#saveState').textContent='已保存本机；云端状态请查看账号页'}catch{$('#saveState').textContent='本机保存失败，请导出备份'}progress()}
 function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / 24 课';$('#progressBar').style.width=(n/24*100)+'%';const st=$('#stageOverview');if(st)st.innerHTML=stageOverview(lessons,state.completed)}
