@@ -13,6 +13,8 @@ jobs:
           python-version: '3.11'
       - name: Run offline CSV importer tests
         run: python3 -m unittest discover -s tests -v
+      - name: Test private access gateway
+        run: npm test
       - name: Check JavaScript syntax
         run: |
           node --check --input-type=module < src/app.js
