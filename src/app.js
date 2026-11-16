@@ -1,9 +1,10 @@
 import {config} from './config.js';
 import {renderDailyMarket} from './daily-market.js';
+import {setupMacroGuide} from './macromicro-guide.js';
 import {candleDiagram,stageOverview} from './learning-visuals.js';
 import {deepLessons,dailySchedule} from './deep-lessons.js';
 import {buildSummary,summaryText} from './session-summary.js';
-const $=s=>document.querySelector(s),pages=['home','lesson','daily','market','watchlist','notes','account','ai'];
+const $=s=>document.querySelector(s),pages=['home','lesson','macro','daily','market','watchlist','notes','account','ai'];
 const raw=[
 ['K线基础','红绿K线','中国A股常用红涨绿跌：收盘高于开盘为红色。','开盘9元，收盘11元是什么颜色？','红色|绿色|十字星',0],
 ['K线基础','开盘价与收盘价','开盘与收盘价决定K线实体两端。','K线实体由哪两个价格构成？','最高与最低|开盘与收盘|昨天与明天',1],
@@ -86,13 +87,14 @@ $('#finishSession').onclick=()=>{
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){state.updatedAt=new Date().toISOString();try{localStorage.setItem('ashare_learning_v4',JSON.stringify(state));$('#saveState').textContent='已保存本机；云端状态请查看账号页'}catch{$('#saveState').textContent='本机保存失败，请导出备份'}progress()}
 function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / 24 课';$('#progressBar').style.width=(n/24*100)+'%';const st=$('#stageOverview');if(st)st.innerHTML=stageOverview(lessons,state.completed)}
+const renderMacroGuide=setupMacroGuide({getState:()=>state,save:()=>save()});
 function renderDailySchedule(){
  const target=$('#dailySchedule');if(!target)return;
  target.innerHTML=dailySchedule.map((x,i)=>'<div class="schedule-item"><span class="schedule-time">'+esc(x.minutes)+'分钟</span><div><strong>'+esc(x.title)+'</strong><p>'+esc(x.detail)+'</p></div></div>').join('');
 }
 renderDailySchedule();
-$('#nav').innerHTML=[['home','🏠 首页'],['lesson','📖 零基础课程'],['daily','📅 每日大盘报告'],['market','📊 真实历史行情'],['watchlist','📈 我的股票'],['notes','📝 笔记与错题'],['account','☁️ 云端账号'],['ai','🤖 AI老师']].map(([id,t])=>'<button class="nav" data-page="'+id+'">'+t+'</button>').join('');
-function show(id){for(const p of pages)$('#'+p).hidden=p!==id;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='lesson')renderLesson();if(id==='daily')renderDailyMarket();if(id==='notes')renderNotes();if(id==='watchlist')renderWatchlist();if(id==='account')renderAccount()}
+$('#nav').innerHTML=[['home','🏠 首页'],['lesson','📖 零基础课程'],['macro','📚 图表阅读课'],['daily','📅 每日大盘报告'],['market','📊 真实历史行情'],['watchlist','📈 我的股票'],['notes','📝 笔记与错题'],['account','☁️ 云端账号'],['ai','🤖 AI老师']].map(([id,t])=>'<button class="nav" data-page="'+id+'">'+t+'</button>').join('');
+function show(id){for(const p of pages)$('#'+p).hidden=p!==id;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='lesson')renderLesson();if(id==='daily')renderDailyMarket();if(id==='macro')renderMacroGuide();if(id==='notes')renderNotes();if(id==='watchlist')renderWatchlist();if(id==='account')renderAccount()}
 $('#nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)show(b.dataset.page)};
 $('#resume').onclick=()=>{current=Math.max(0,lessons.findIndex(l=>l.id===state.lastLesson));show('lesson')};
 function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / 24课</span><h2>'+esc(l.title)+'</h2>'+(current===0?candleDiagram():'')+'<div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div><div id="lessonExplanation" class="panel" hidden><strong>老师讲解</strong><p>'+esc(explanations[current])+'</p><h3>举个例子</h3><p>'+esc(deepLessons[current].example)+'</p><h3>容易误解的地方</h3><p>'+esc(deepLessons[current].pitfall)+'</p><h3>动手练习</h3><p>'+esc(deepLessons[current].practice)+'</p><p class="small">以上数字均为教学示意，不代表真实A股历史价格。</p></div>';
