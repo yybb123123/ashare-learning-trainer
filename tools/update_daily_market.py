@@ -14,6 +14,7 @@ def number(value):
  return round(v,4)
 def rows(frame):
  out=[]
+ frame=frame.tail(260)
  for _,r in frame.iterrows():
   d=str(r['日期'])[:10]
   o,h,l,c=map(lambda k:number(r[k]),('开盘','最高','最低','收盘'))
