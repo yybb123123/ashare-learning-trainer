@@ -1,0 +1,1 @@
+export const config={supabaseUrl:'',supabasePublishableKey:'',marketManifest:'./data/manifest.json',aiEndpoint:''};
