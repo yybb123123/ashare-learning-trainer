@@ -1,4 +1,5 @@
 import {config} from './config.js';
+import {candleDiagram,stageOverview} from './learning-visuals.js';
 const $=s=>document.querySelector(s),pages=['home','lesson','market','notes','account','ai'];
 const raw=[
 ['K线基础','红绿K线','中国A股常用红涨绿跌：收盘高于开盘为红色。','开盘9元，收盘11元是什么颜色？','红色|绿色|十字星',0],
@@ -32,12 +33,12 @@ let state=fresh(),current=0,selected=-1,market=null,barIndex=0,cloud=null;
 try{const s=JSON.parse(localStorage.getItem('ashare_learning_v4'));if(s&&typeof s==='object')state={...fresh(),...s}}catch{}
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){state.updatedAt=new Date().toISOString();try{localStorage.setItem('ashare_learning_v4',JSON.stringify(state));$('#saveState').textContent='已保存本机；云端状态请查看账号页'}catch{$('#saveState').textContent='本机保存失败，请导出备份'}progress()}
-function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / 24 课';$('#progressBar').style.width=(n/24*100)+'%'}
+function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / 24 课';$('#progressBar').style.width=(n/24*100)+'%';const st=$('#stageOverview');if(st)st.innerHTML=stageOverview(lessons,state.completed)}
 $('#nav').innerHTML=[['home','🏠 首页'],['lesson','📖 零基础课程'],['market','📊 真实历史行情'],['notes','📝 笔记与错题'],['account','☁️ 云端账号'],['ai','🤖 AI老师']].map(([id,t])=>'<button class="nav" data-page="'+id+'">'+t+'</button>').join('');
 function show(id){for(const p of pages)$('#'+p).hidden=p!==id;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='lesson')renderLesson();if(id==='notes')renderNotes();if(id==='account')renderAccount()}
 $('#nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)show(b.dataset.page)};
 $('#resume').onclick=()=>{current=Math.max(0,lessons.findIndex(l=>l.id===state.lastLesson));show('lesson')};
-function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / 24课</span><h2>'+esc(l.title)+'</h2><div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div>';
+function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / 24课</span><h2>'+esc(l.title)+'</h2>'+(current===0?candleDiagram():'')+'<div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div>';
 $('#lessonBody').querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.choice);$('#check').disabled=false;$('#lessonBody').querySelectorAll('[data-choice]').forEach(x=>x.classList.toggle('selected',x===b))});
 $('#check').onclick=()=>{const ok=selected===l.a;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=l.id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});save()};
 $('#previousLesson').disabled=current===0;$('#nextLesson').disabled=current===23;$('#previousLesson').onclick=()=>move(-1);$('#nextLesson').onclick=()=>move(1)}
@@ -59,4 +60,14 @@ $('#login').onclick=async()=>{if(!cloud)return $('#authMsg').textContent='请先
 $('#signup').onclick=async()=>{if(!cloud)return $('#authMsg').textContent='请先配置Supabase';const {error}=await cloud.db.auth.signUp({email:$('#email').value,password:$('#password').value});$('#authMsg').textContent=error?error.message:'注册已提交，请按邮件提示确认'};
 $('#logout').onclick=async()=>{if(cloud){await cloud.db.auth.signOut();cloud.user=null;renderAccount()}};
 $('#syncNow').onclick=async()=>{if(!cloud?.user)return $('#backupStatus').textContent='请先登录';const {error}=await cloud.db.from('learning_state').upsert({user_id:cloud.user.id,payload:state,updated_at:new Date().toISOString()});$('#backupStatus').textContent=error?'同步失败：'+error.message:'已同步到云端'};
+// Explicit cloud recovery is opt-in: never overwrite unsaved local work silently.
+$('#restoreCloud').onclick=async()=>{
+ if(!cloud?.user)return $('#backupStatus').textContent='请先登录云端账号';
+ const {data,error}=await cloud.db.from('learning_state').select('payload,updated_at').eq('user_id',cloud.user.id).maybeSingle();
+ if(error)return $('#backupStatus').textContent='读取失败：'+error.message;
+ if(!data?.payload)return $('#backupStatus').textContent='云端暂无学习记录';
+ if(!confirm('将云端记录覆盖当前本机记录？请先导出本机备份。'))return;
+ const p=data.payload;if(!p||typeof p!=='object'||!p.completed||!Array.isArray(p.mistakes)||!Array.isArray(p.decisions))return $('#backupStatus').textContent='云端数据格式异常';
+ state={...fresh(),...p};save();renderAccount();$('#backupStatus').textContent='云端进度已恢复到本机';
+};
 progress();$('#saveState').textContent=state.updatedAt?'已读取本机学习进度（上次保存：'+new Date(state.updatedAt).toLocaleString('zh-CN')+'）；尚未云端同步':'尚无学习记录；完成答题后将自动保存在本机（尚未云端同步）';show('home');initCloud();
