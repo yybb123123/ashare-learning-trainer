@@ -37,3 +37,5 @@ h1{font-size:1.5rem}
 #lessonExplanation[hidden]{display:none}
 
 .schedule-item{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #d8e5f1}.schedule-item:last-child{border-bottom:0}.schedule-item p{margin:3px 0 0}.schedule-time{flex:0 0 66px;font-size:.84rem;color:#164f80;font-weight:700}.schedule-item strong{font-size:1rem}#lessonExplanation h3{margin:18px 0 4px;font-size:1.04rem}#lessonExplanation p{margin:5px 0 12px}
+
+.summary-card{border:1px solid #d8e5f1;border-radius:12px;margin:12px 0;padding:12px;background:#f8fbff}.summary-card summary{cursor:pointer;font-weight:700;line-height:1.5}.summary-body pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;margin:12px 0 0}#finishSession{margin:12px 0 0}
