@@ -1,0 +1,20 @@
+name: Check trainer data tools
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run offline CSV importer tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Check JavaScript syntax
+        run: |
+          node --check --input-type=module < src/app.js
+          node --check --input-type=module < src/learning-visuals.js
+          node --check --input-type=module < src/config.js
