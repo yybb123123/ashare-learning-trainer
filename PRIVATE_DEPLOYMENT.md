@@ -30,3 +30,11 @@ GitHub Pages 的公开 URL **不是私密网站**。隐藏注册按钮不构成�
 - 创建 Supabase 项目及妈妈的专属账号。
 - 在服务端安全设置 DeepSeek Key；不要通过聊天发送密钥。
 - 正式上线前关闭或移除旧的公开 GitHub Pages 部署。
+
+## 已提交的第一阶段私人网关（尚未部署）
+- `server.mjs`：Node.js HTTP Basic Auth，所有静态资源在密码检查之后返回；需由 Zeabur HTTPS 终止 TLS。
+- `package.json`：启动命令 `npm start`，运行测试 `npm test`。
+- Zeabur 环境变量：`SITE_USERNAME`（专用用户名）、`SITE_PASSWORD`（至少 16 位随机密码）、`PORT`（平台通常自动注入）。绝不能把真实密码写入 GitHub。
+- HTTP Basic Auth 是**初期单账号访问网关**，不是 Supabase 登录；浏览器可能缓存凭据，不能保证网页内可靠登出或会话撤销。正式部署若需要可靠退出与按用户撤销，改为服务端会话或托管身份网关。
+- 该网关只保护新部署站点；**现有公开 GitHub Pages 仍可访问**。在私人站验收通过后，必须在仓库 Pages 设置中关闭旧公开部署，才能满足仅妈妈可访问的目标。
+- 如果项目仍是 public，GitHub 上的教学源代码本身仍公开；如需代码也不公开，另需调整仓库可见性并验证部署兼容性。
