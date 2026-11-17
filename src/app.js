@@ -161,7 +161,7 @@ async function loadAutomaticMarket(){
   const open=i=>{
    const x=items[i];
    if(!x)return;
-   const bars=x.bars.filter(b=>b.date<='2026-11-16').map(b=>({...b}));
+   const bars=x.bars.filter(b=>b.date<=new Date().toISOString().slice(0,10)).map(b=>({...b}));
    const dataset={verified:true,symbol:x.symbol,adjustment:x.adjustment==='qfq'?'qfq':'none',source:{url:x.source||'AKShare',retrievedAt:data.generatedAt},bars};
    load(dataset);
    status.textContent='已自动载入 '+x.name+'（截至 '+data.asOf+'）。第三方数据仅做结构检查，非实时行情。';
