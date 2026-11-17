@@ -1,6 +1,7 @@
 import {config} from './config.js';
 import {renderDailyMarket} from './daily-market.js';
 import {setupMacroGuide} from './macromicro-guide.js';
+import {extendedLessons} from './extended-lessons.js';
 import {candleDiagram,stageOverview} from './learning-visuals.js';
 import {deepLessons,dailySchedule} from './deep-lessons.js';
 import {buildSummary,summaryText} from './session-summary.js';
@@ -31,7 +32,7 @@ const raw=[
 ['A股规则与风险','仓位与风险','单笔风险预算不等于保证最大亏损，考虑费用与滑点。','10万元账户风险1%是多少？','100元|1000元|10000元',1],
 ['A股规则与风险','避免未来数据','历史回放只能使用当时已知行情。','训练时可提前看未来价格吗？','可以|不可以',1]
 ];
-const lessons=raw.map((r,i)=>({id:'l'+i,stage:r[0],title:r[1],body:r[2],q:r[3],options:r[4].split('|'),a:r[5]}));
+const lessons=[...raw.map((r,i)=>({id:'l'+i,stage:r[0],title:r[1],body:r[2],q:r[3],options:r[4].split('|'),a:r[5]})),...extendedLessons.slice(0,76).map((x,i)=>({id:'l'+(i+24),stage:x.stage,title:x.title,body:x.concept,q:x.question,options:[x.answer,'只凭单一信号就能保证未来走势'],a:0,extra:x}))];
 
 // Detailed beginner explanations are authored teaching material, not live AI advice.
 const explanations=[
@@ -86,7 +87,7 @@ $('#finishSession').onclick=()=>{
 };
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){state.updatedAt=new Date().toISOString();try{localStorage.setItem('ashare_learning_v4',JSON.stringify(state));$('#saveState').textContent='已保存本机；云端状态请查看账号页'}catch{$('#saveState').textContent='本机保存失败，请导出备份'}progress()}
-function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / 24 课';$('#progressBar').style.width=(n/24*100)+'%';const st=$('#stageOverview');if(st)st.innerHTML=stageOverview(lessons,state.completed)}
+function progress(){const n=Object.keys(state.completed).filter(x=>state.completed[x]).length;$('#progressText').textContent='已完成 '+n+' / '+lessons.length+' 课';$('#progressBar').style.width=(n/lessons.length*100)+'%';const st=$('#stageOverview');if(st)st.innerHTML=stageOverview(lessons,state.completed)}
 const renderMacroGuide=setupMacroGuide({getState:()=>state,save:()=>save()});
 function renderDailySchedule(){
  const target=$('#dailySchedule');if(!target)return;
@@ -97,11 +98,11 @@ $('#nav').innerHTML=[['home','🏠 首页'],['lesson','📖 零基础课程'],['
 function show(id){for(const p of pages)$('#'+p).hidden=p!==id;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='lesson')renderLesson();if(id==='daily')renderDailyMarket();if(id==='macro')renderMacroGuide();if(id==='notes')renderNotes();if(id==='watchlist')renderWatchlist();if(id==='account')renderAccount()}
 $('#nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)show(b.dataset.page)};
 $('#resume').onclick=()=>{current=Math.max(0,lessons.findIndex(l=>l.id===state.lastLesson));show('lesson')};
-function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / 24课</span><h2>'+esc(l.title)+'</h2>'+(current===0?candleDiagram():'')+'<div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div><div id="lessonExplanation" class="panel" hidden><strong>老师讲解</strong><p>'+esc(explanations[current])+'</p><h3>举个例子</h3><p>'+esc(deepLessons[current].example)+'</p><h3>容易误解的地方</h3><p>'+esc(deepLessons[current].pitfall)+'</p><h3>动手练习</h3><p>'+esc(deepLessons[current].practice)+'</p><p class="small">以上数字均为教学示意，不代表真实A股历史价格。</p></div>';
+function renderLesson(){const l=lessons[current];selected=-1;$('#lessonBody').innerHTML='<span class="pill">'+esc(l.stage)+' · 第'+(current+1)+'课 / '+lessons.length+'课</span><h2>'+esc(l.title)+'</h2>'+(current===0?candleDiagram():'')+'<div class="panel">'+esc(l.body)+'</div><h3>想一想</h3><p>'+esc(l.q)+'</p><div class="choices">'+l.options.map((o,i)=>'<button class="choice" data-choice="'+i+'">'+esc(o)+'</button>').join('')+'</div><div class="actions"><button id="check" disabled>提交答案</button><button id="previousLesson" class="secondary">上一课</button><button id="nextLesson" class="secondary">下一课</button></div><div id="feedback" aria-live="polite"></div><div id="lessonExplanation" class="panel" hidden><strong>老师讲解</strong><p>'+esc(l.extra?'理解要点：'+l.extra.concept+'。这是一条分析线索，不能独立推断下一交易日涨跌。':explanations[current])+'</p><h3>举个例子</h3><p>'+esc(l.extra?l.extra.example:deepLessons[current].example)+'</p><h3>容易误解的地方</h3><p>'+esc(l.extra?'常见误区：把单一技术或经济信号当成确定预测。应结合数据来源、市场环境与反例检查。':deepLessons[current].pitfall)+'</p><h3>动手练习</h3><p>'+esc(l.extra?'在每日市场报告或妈妈关注的一只股票中，寻找与「'+l.extra.title+'」有关的真实证据。记录日期、数据来源、支持证据和一条反证；没有数据就写「暂无法判断」。':deepLessons[current].practice)+'</p><p class="small">以上数字均为教学示意，不代表真实A股历史价格。</p></div>';
 $('#lessonBody').querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.choice);$('#check').disabled=false;$('#lessonBody').querySelectorAll('[data-choice]').forEach(x=>x.classList.toggle('selected',x===b))});
-$('#check').onclick=()=>{const ok=selected===l.a;$('#lessonExplanation').hidden=false;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=lessons[Math.min(current+1,23)].id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});logSession({type:'answer',lessonId:l.id,correct:ok})};
-$('#previousLesson').disabled=current===0;$('#nextLesson').disabled=current===23;$('#previousLesson').onclick=()=>move(-1);$('#nextLesson').onclick=()=>move(1)}
-function move(d){current=Math.max(0,Math.min(23,current+d));state.lastLesson=lessons[current].id;save();renderLesson()}
+$('#check').onclick=()=>{const ok=selected===l.a;$('#lessonExplanation').hidden=false;$('#feedback').className=ok?'success':'error';$('#feedback').textContent=(ok?'回答正确！':'再试一次。')+' 正确答案：'+l.options[l.a];if(ok){state.completed[l.id]=true;state.lastLesson=lessons[Math.min(current+1,lessons.length-1)].id}else state.mistakes.push({question:l.q,answer:l.options[selected],correct:l.options[l.a],at:new Date().toISOString()});logSession({type:'answer',lessonId:l.id,correct:ok})};
+$('#previousLesson').disabled=current===0;$('#nextLesson').disabled=current===lessons.length-1;$('#previousLesson').onclick=()=>move(-1);$('#nextLesson').onclick=()=>move(1)}
+function move(d){current=Math.max(0,Math.min(lessons.length-1,current+d));state.lastLesson=lessons[current].id;save();renderLesson()}
 function renderWatchlist(){
  const list=Array.isArray(state.watchlist)?state.watchlist:[];
  $('#watchList').innerHTML=list.length?list.map(x=>'<div class="panel watch-item"><strong>'+esc(x.symbol)+' '+esc(x.name||'')+'</strong><span class="pill">'+esc(x.type)+'</span><button class="secondary" data-remove-watch="'+esc(x.symbol)+'">移除</button></div>').join(''):'还没有添加股票。';
