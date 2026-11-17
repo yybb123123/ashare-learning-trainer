@@ -141,13 +141,44 @@ function renderNotes(){renderSummaries();$('#noteText').value=state.notes;$('#mi
 $('#saveNote').onclick=()=>{state.notes=$('#noteText').value.slice(0,20000);save();$('#noteStatus').textContent='已保存到本机'};
 $('#exportProgress').onclick=()=>{const b=new Blob([JSON.stringify({format:'ashare-learning-backup',state},null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='A股学习进度备份.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
 $('#importProgress').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>2e6)throw Error('文件过大');const d=JSON.parse(await f.text());if(d.format!=='ashare-learning-backup'||!d.state)throw Error('格式错误');if(!confirm('覆盖当前本机进度？'))return;state={...fresh(),...d.state};save();$('#backupStatus').textContent='导入成功'}catch(err){$('#backupStatus').textContent=err.message}};
-function validate(d){if(!d||d.verified!==true||!d.source?.url||!d.source?.retrievedAt||!d.symbol||!['none','qfq','hfq'].includes(d.adjustment)||!Array.isArray(d.bars)||d.bars.length<20)throw Error('缺少真实行情来源、复权信息或20条日线');let prev='';for(const b of d.bars){if(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||b.date<=prev||b.date<'2015-01-01'||b.date>'2026-10-31')throw Error('日期错误');prev=b.date;for(const k of ['open','high','low','close','volume'])if(!Number.isFinite(b[k])||b[k]<0)throw Error('行情数值错误');if(b.low<=0||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close))throw Error('OHLC异常')}return d}
+function validate(d){if(!d||d.verified!==true||!d.source?.url||!d.source?.retrievedAt||!d.symbol||!['none','qfq','hfq'].includes(d.adjustment)||!Array.isArray(d.bars)||d.bars.length<20)throw Error('缺少真实行情来源、复权信息或20条日线');let prev='';for(const b of d.bars){if(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||b.date<=prev||b.date<'2015-01-01'||b.date>new Date().toISOString().slice(0,10))throw Error('日期错误');prev=b.date;for(const k of ['open','high','low','close','volume'])if(!Number.isFinite(b[k])||b[k]<0)throw Error('行情数值错误');if(b.low<=0||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close))throw Error('OHLC异常')}return d}
 function load(d){market=validate(d);barIndex=19;$('#marketStatus').textContent='已加载 '+d.symbol+'，来源：'+d.source.url+'。来源核验标记由导入者声明，本站不能独立证明。';draw()}
 function draw(){if(!market)return;const bars=market.bars.slice(Math.max(0,barIndex-59),barIndex+1),hi=Math.max(...bars.map(b=>b.high)),lo=Math.min(...bars.map(b=>b.low)),span=Math.max(hi-lo,.01),w=900,h=360,dx=820/bars.length,py=v=>25+(hi-v)/span*240;let out='<svg viewBox="0 0 900 360" aria-label="历史K线图"><rect width="900" height="360" fill="#f5f9fc"/>';bars.forEach((b,i)=>{const x=60+(i+.5)*dx,c=b.close>=b.open?'#d94c4c':'#25865b',top=Math.min(py(b.open),py(b.close));out+='<line x1="'+x+'" y1="'+py(b.high)+'" x2="'+x+'" y2="'+py(b.low)+'" stroke="'+c+'"/><rect x="'+(x-dx*.3)+'" y="'+top+'" width="'+Math.max(2,dx*.6)+'" height="'+Math.max(1,Math.abs(py(b.open)-py(b.close)))+'" fill="'+c+'"/>'});$('#chart').innerHTML=out+'</svg>';const b=market.bars[barIndex];$('#barInfo').textContent=b.date+' 开'+b.open+' 高'+b.high+' 低'+b.low+' 收'+b.close+' 量'+b.volume;$('#chartCaption').textContent='来源：'+market.source.url+'；复权：'+market.adjustment+'；未来数据隐藏';$('#prevBar').disabled=barIndex<=19;$('#nextBar').disabled=barIndex>=market.bars.length-1;$('#recordDecision').disabled=false}
 $('#prevBar').onclick=()=>{barIndex--;draw()};$('#nextBar').onclick=()=>{barIndex++;draw()};
 $('#recordDecision').onclick=()=>{if(!market||!$('#decision').value)return;state.decisions.push({symbol:market.symbol,date:market.bars[barIndex].date,decision:$('#decision').value});save();$('#decisionStatus').textContent='判断已记录'};
+async function loadAutomaticMarket(){
+ const status=$('#marketStatus');
+ status.textContent='正在自动加载已发布的历史行情，不需要上传文件…';
+ try{
+  const response=await fetch('./data/daily-market.json',{cache:'no-store'});
+  if(!response.ok)throw Error('后台尚未成功生成行情文件');
+  const data=await response.json();
+  if(data.verificationLevel!=='structural-only'||!Array.isArray(data.items))throw Error('数据结构未通过检查');
+  const items=data.items.filter(x=>Array.isArray(x.bars)&&x.bars.length>=50);
+  if(!items.length)throw Error('暂无可使用的历史数据');
+  const choice=$('#dataset');
+  choice.innerHTML=items.map((x,i)=>'<option value="'+i+'">'+esc(x.name)+' '+esc(x.symbol)+'</option>').join('');
+  const open=i=>{
+   const x=items[i];
+   if(!x)return;
+   const bars=x.bars.filter(b=>b.date<='2026-11-16').map(b=>({...b}));
+   const dataset={verified:true,symbol:x.symbol,adjustment:x.adjustment==='qfq'?'qfq':'none',source:{url:x.source||'AKShare',retrievedAt:data.generatedAt},bars};
+   load(dataset);
+   status.textContent='已自动载入 '+x.name+'（截至 '+data.asOf+'）。第三方数据仅做结构检查，非实时行情。';
+  };
+  $('#loadDataset').disabled=false;
+  $('#loadDataset').textContent='切换图表';
+  $('#loadDataset').onclick=()=>open(Number(choice.value));
+  choice.onchange=()=>open(Number(choice.value));
+  open(0);
+ }catch(err){
+  status.textContent='自动行情暂不可用：'+err.message+'。不需要妈妈上传文件；请等待后台数据更新。';
+ }
+}
 $('#marketFile').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>12e6)throw Error('文件超过12MB');load(JSON.parse(await f.text()));$('#importStatus').textContent='文件结构检查通过，请自行核对真实来源'}catch(err){$('#importStatus').textContent='导入失败：'+err.message}};
-fetch(config.marketManifest).then(r=>r.json()).then(m=>{if(!m.verified||!m.datasets?.length)throw Error();$('#dataset').innerHTML='<option value="">选择数据集</option>'+m.datasets.map((d,i)=>'<option value="'+i+'">'+esc(d.symbol)+' '+esc(d.name)+'</option>').join('');$('#loadDataset').disabled=false;$('#loadDataset').onclick=async()=>{try{const d=m.datasets[Number($('#dataset').value)];if(d)load(await (await fetch(d.path)).json())}catch(e){$('#marketStatus').textContent=e.message}}}).catch(()=>{$('#marketStatus').textContent='尚未导入2015—2026年真实A股行情，历史回放暂不可用。'});
+/* Legacy manually curated manifest remains optional for developers only. */
+/* fetch(config.marketManifest).then(r=>r.json()).then(m=>{if(!m.verified||!m.datasets?.length)throw Error();$('#dataset').innerHTML='<option value="">选择数据集</option>'+m.datasets.map((d,i)=>'<option value="'+i+'">'+esc(d.symbol)+' '+esc(d.name)+'</option>').join('');$('#loadDataset').disabled=false;$('#loadDataset').onclick=async()=>{try{const d=m.datasets[Number($('#dataset').value)];if(d)load(await (await fetch(d.path)).json())}catch(e){$('#marketStatus').textContent=e.message}}}).catch(()=>{$('#marketStatus').textContent='尚未导入2015—2026年真实A股行情，历史回放暂不可用。'}); */
+loadAutomaticMarket();
 function renderAccount(){$('#cloudStatus').textContent=cloud?.user?'已登录 '+cloud.user.email:'Supabase 尚未配置或未登录；本地记录可以导出备份';$('#logout').hidden=!cloud?.user}
 async function initCloud(){if(!config.supabaseUrl||!config.supabasePublishableKey){renderAccount();return}try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');cloud={db:createClient(config.supabaseUrl,config.supabasePublishableKey),user:null};const {data:{user}}=await cloud.db.auth.getUser();cloud.user=user;renderAccount()}catch(e){$('#cloudStatus').textContent='云端连接失败：'+e.message}}
 $('#login').onclick=async()=>{if(!cloud)return $('#authMsg').textContent='请先配置Supabase';const {data,error}=await cloud.db.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});$('#authMsg').textContent=error?error.message:'登录成功';if(!error){cloud.user=data.user;renderAccount()}};
